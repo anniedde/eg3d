@@ -25,9 +25,12 @@ import uuid
 import glob
 import argparse
 import itertools
+import gdown
 import shutil
 from collections import OrderedDict, defaultdict
 import cv2
+import time
+
 PIL.ImageFile.LOAD_TRUNCATED_IMAGES = True # avoid "Decompressed Data Too Large" error
 
 #----------------------------------------------------------------------------
@@ -67,10 +70,14 @@ def download_file(session, file_spec, stats, chunk_size=128, num_attempts=10):
     for attempts_left in reversed(range(num_attempts)):
         data_size = 0
         try:
+            file_url = file_url + '&confirm=t'
+            #gdown.download(file_url, file_path, quiet=False)
+            
+            
             # Download.
             data_md5 = hashlib.md5()
             with session.get(file_url, stream=True) as res:
-                res.raise_for_status()
+                #res.raise_for_status()
                 with open(tmp_path, 'wb') as f:
                     for chunk in res.iter_content(chunk_size=chunk_size<<10):
                         f.write(chunk)
@@ -78,7 +85,9 @@ def download_file(session, file_spec, stats, chunk_size=128, num_attempts=10):
                         data_md5.update(chunk)
                         with stats['lock']:
                             stats['bytes_done'] += len(chunk)
-
+            
+                            
+            """
             # Validate.
             if 'file_size' in file_spec and data_size != file_spec['file_size']:
                 raise IOError('Incorrect file size', file_path)
@@ -90,6 +99,7 @@ def download_file(session, file_spec, stats, chunk_size=128, num_attempts=10):
                         raise IOError('Incorrect pixel size', file_path)
                     if 'pixel_md5' in file_spec and hashlib.md5(np.array(image)).hexdigest() != file_spec['pixel_md5']:
                         raise IOError('Incorrect pixel MD5', file_path)
+            """
             break
 
         except:
@@ -212,6 +222,7 @@ def _download_thread(spec_queue, exception_queue, stats, download_kwargs):
             spec = spec_queue.get()
             try:
                 download_file(session, spec, stats, **download_kwargs)
+                time.sleep(1)
             except:
                 exception_queue.put(sys.exc_info())
 

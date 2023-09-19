@@ -38,9 +38,12 @@ for img in imgs:
     if img.endswith(".png"):
         dst = os.path.join(out_detection, img.replace(".png", ".txt"))
 
+    print('flag1')
     if not os.path.exists(dst):
         image = cv2.cvtColor(cv2.imread(src), cv2.COLOR_BGR2RGB)
+        print('flag2')
         result = detector.detect_faces(image)
+        print('flag3')
 
         if len(result)>0:
             index = 0

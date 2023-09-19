@@ -483,6 +483,8 @@ def open_url(url: str, cache_dir: str = None, num_attempts: int = 10, verbose: b
         temp_file = os.path.join(cache_dir, "tmp_" + uuid.uuid4().hex + "_" + url_md5 + "_" + safe_name)
         os.makedirs(cache_dir, exist_ok=True)
         with open(temp_file, "wb") as f:
+            #print('url_data is ', url_data)
+            print('temp_file is ', temp_file)
             f.write(url_data)
         os.replace(temp_file, cache_file) # atomic
         if return_filename:

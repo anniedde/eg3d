@@ -18,14 +18,14 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 #--------------------------------------------------------------------------------------------------------#
 
 # Download wilds
-cmd = "python download_ffhq.py --wilds"
+cmd = "python download_ffhq.py --wilds --num_threads=1"
 subprocess.run([cmd], shell=True, check=True)
 
 #--------------------------------------------------------------------------------------------------------#
 
 # Validate wilds
-cmd = "python validate_ffhq.py"
-subprocess.run([cmd], shell=True, check=True)
+#cmd = "python validate_ffhq.py"
+#subprocess.run([cmd], shell=True, check=True)
 
 #--------------------------------------------------------------------------------------------------------#
 

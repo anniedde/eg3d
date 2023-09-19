@@ -129,12 +129,13 @@ def training_loop(
     # Initialize.
     start_time = time.time()
     device = torch.device('cuda', rank)
+    print('device is', device)
     np.random.seed(random_seed * num_gpus + rank)
     torch.manual_seed(random_seed * num_gpus + rank)
     torch.backends.cudnn.benchmark = cudnn_benchmark    # Improves training speed.
     torch.backends.cuda.matmul.allow_tf32 = False       # Improves numerical accuracy.
     torch.backends.cudnn.allow_tf32 = False             # Improves numerical accuracy.
-    torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False  # Improves numerical accuracy.
+    #torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False  # Improves numerical accuracy.
     conv2d_gradfix.enabled = True                       # Improves training speed. # TODO: ENABLE
     grid_sample_gradfix.enabled = False                  # Avoids errors with the augmentation pipe.
 
@@ -163,7 +164,7 @@ def training_loop(
     # Resume from existing pickle.
     if (resume_pkl is not None) and (rank == 0):
         print(f'Resuming from "{resume_pkl}"')
-        with dnnlib.util.open_url(resume_pkl) as f:
+        with dnnlib.util.open_url(resume_pkl, cache=False) as f:
             resume_data = legacy.load_network_pkl(f)
         for name, module in [('G', G), ('D', D), ('G_ema', G_ema)]:
             misc.copy_params_and_buffers(resume_data[name], module, require_all=False)
