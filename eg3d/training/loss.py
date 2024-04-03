@@ -124,6 +124,13 @@ class StyleGAN2Loss(Loss):
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
                 loss_Gmain = torch.nn.functional.softplus(-gen_logits)
                 training_stats.report('Loss/G/loss', loss_Gmain)
+                grads = [
+                    param.grad.detach().flatten()
+                    for param in self.G.parameters()
+                    if param.grad is not None
+                ]
+                norm = torch.cat(grads).norm()
+                training_stats.report('Gradient/G/norm', norm)
             with torch.autograd.profiler.record_function('Gmain_backward'):
                 loss_Gmain.mean().mul(gain).backward()
 
@@ -248,6 +255,13 @@ class StyleGAN2Loss(Loss):
                 training_stats.report('Loss/scores/fake', gen_logits)
                 training_stats.report('Loss/signs/fake', gen_logits.sign())
                 loss_Dgen = torch.nn.functional.softplus(gen_logits)
+                grads = [
+                    param.grad.detach().flatten()
+                    for param in self.D.parameters()
+                    if param.grad is not None
+                ]
+                norm = torch.cat(grads).norm()
+                training_stats.report('Gradient/D/norm', norm)
             with torch.autograd.profiler.record_function('Dgen_backward'):
                 loss_Dgen.mean().mul(gain).backward()
 

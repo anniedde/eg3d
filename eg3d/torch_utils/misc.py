@@ -163,6 +163,48 @@ def copy_params_and_buffers(src_module, dst_module, require_all=False):
         if name in src_tensors:
             tensor.copy_(src_tensors[name].detach()).requires_grad_(tensor.requires_grad)
 
+def copy_params_and_buffers_lora(src_module, dst_module, require_all=False, freeze_imported_weights=False):
+    assert isinstance(src_module, torch.nn.Module)
+    assert isinstance(dst_module, torch.nn.Module)
+    src_tensors = dict(named_params_and_buffers(src_module))
+    dst_tensors = dict(named_params_and_buffers(dst_module))
+
+    for name, src_tensor in named_params_and_buffers(src_module):
+        # renaming from original EG3D generator names
+        new_name = name.replace('superresolution', 'superresolution.superresolution_module')
+        new_name = new_name.replace('synthesis', 'synthesis.synthesis')
+        new_name = re.sub(r"b\d+", lambda match: match.group(0) + '.synthesis_block', new_name, count=1)
+        new_name = re.sub(r"block\d+", lambda match: match.group(0) + '.synthesis_block', new_name, count=1)
+        new_name = new_name.replace('conv1', 'conv1.synthesis_layer')
+        new_name = new_name.replace('conv0', 'conv0.synthesis_layer')
+        new_name = new_name.replace('torgb', 'torgb.to_rgb_layer')
+        new_name = new_name.replace('affine', 'affine.fully_connected_layer')
+        #if new_name not in dst_tensors and name not in dst_tensors:
+        #    print(f'{name} in source module but not in destination')
+        assert (new_name in dst_tensors) or (name in dst_tensors), f'{name} AKA {new_name} in source module but not in destination'
+
+    for name, dest_tensor in named_params_and_buffers(dst_module):
+        new_name = name.replace('superresolution.superresolution_module', 'superresolution')
+        new_name = new_name.replace('synthesis.synthesis', 'synthesis')
+        new_name = re.sub(r"b\d+.synthesis_block", lambda match: match.group(0).replace('.synthesis_block', ''), new_name, count=1)
+        new_name = re.sub(r"block\d+.synthesis_block", lambda match: match.group(0).replace('.synthesis_block', ''), new_name, count=1)
+        new_name = new_name.replace('conv1.synthesis_layer', 'conv1')
+        new_name = new_name.replace('conv0.synthesis_layer', 'conv0')
+        new_name = new_name.replace('torgb.to_rgb_layer', 'torgb')
+        new_name = new_name.replace('affine.fully_connected_layer', 'affine')
+        if name in src_tensors:
+            dest_tensor.requires_grad_(False)
+            dest_tensor.copy_(src_tensors[name].detach()).requires_grad_(src_tensors[name].requires_grad)
+            if freeze_imported_weights:
+                dest_tensor.requires_grad_(False)
+        elif new_name in src_tensors:
+            dest_tensor.requires_grad_(False)
+            dest_tensor.copy_(src_tensors[new_name].detach()).requires_grad_(src_tensors[new_name].requires_grad)
+            if freeze_imported_weights:
+                dest_tensor.requires_grad_(False)
+        else:
+            assert ('lora' in name), f'Dest module has param that does not exist in source module: {name}'
+
 #----------------------------------------------------------------------------
 # Context manager for easily enabling/disabling DistributedDataParallel
 # synchronization.

@@ -20,6 +20,9 @@ import PIL.Image
 import numpy as np
 import torch
 import dnnlib
+import torchvision
+from torchvision.utils import save_image
+
 from torch_utils import misc
 from torch_utils import training_stats
 from torch_utils.ops import conv2d_gradfix
@@ -29,6 +32,8 @@ import legacy
 from metrics import metric_main
 from camera_utils import LookAtPoseSampler
 from training.crosssection_utils import sample_cross_section
+#from training.networks_stylegan2_lora import LoraNet
+#from training.superresolution import SuperresolutionHybrid8XDCWrapper
 
 #----------------------------------------------------------------------------
 
@@ -168,6 +173,7 @@ def training_loop(
             resume_data = legacy.load_network_pkl(f)
         for name, module in [('G', G), ('D', D), ('G_ema', G_ema)]:
             misc.copy_params_and_buffers(resume_data[name], module, require_all=False)
+            #misc.copy_params_and_buffers_lora(resume_data[name], module, require_all=False, freeze_imported_weights=True)
 
     # Print network summary tables.
     if rank == 0:
@@ -258,6 +264,18 @@ def training_loop(
     batch_idx = 0
     if progress_fn is not None:
         progress_fn(0, total_kimg)
+
+    #for name, param in G.backbone.synthesis.named_parameters():
+    #    if 'lora' not in name:
+    #        param.requires_grad = False
+    #for name, param in G.superresolution.named_parameters():
+    #    if 'lora' not in name:
+    #        param.requires_grad = False
+    for param in G_ema.parameters():
+        param.requires_grad = False
+    G_ema.eval()
+
+    torch.cuda.empty_cache()
     while True:
 
         # Fetch training data.
@@ -283,6 +301,7 @@ def training_loop(
             phase.module.requires_grad_(True)
             for real_img, real_c, gen_z, gen_c in zip(phase_real_img, phase_real_c, phase_gen_z, phase_gen_c):
                 loss.accumulate_gradients(phase=phase.name, real_img=real_img, real_c=real_c, gen_z=gen_z, gen_c=gen_c, gain=phase.interval, cur_nimg=cur_nimg)
+
             phase.module.requires_grad_(False)
 
             # Update weights.
@@ -361,11 +380,17 @@ def training_loop(
         if (rank == 0) and (image_snapshot_ticks is not None) and (done or cur_tick % image_snapshot_ticks == 0):
             out = [G_ema(z=z, c=c, noise_mode='const') for z, c in zip(grid_z, grid_c)]
             images = torch.cat([o['image'].cpu() for o in out]).numpy()
+            images_subset = torch.cat([o['image'].cpu() for o in out]).view(-1, 3, 512, 512)[:20]
             images_raw = torch.cat([o['image_raw'].cpu() for o in out]).numpy()
             images_depth = -torch.cat([o['image_depth'].cpu() for o in out]).numpy()
             save_image_grid(images, os.path.join(run_dir, f'fakes{cur_nimg//1000:06d}.png'), drange=[-1,1], grid_size=grid_size)
             save_image_grid(images_raw, os.path.join(run_dir, f'fakes{cur_nimg//1000:06d}_raw.png'), drange=[-1,1], grid_size=grid_size)
             save_image_grid(images_depth, os.path.join(run_dir, f'fakes{cur_nimg//1000:06d}_depth.png'), drange=[images_depth.min(), images_depth.max()], grid_size=grid_size)
+
+            # Save images_subset as a grid
+            images_subset = (images_subset + 1) / 2.0
+            images_subset_grid = torchvision.utils.make_grid(images_subset, nrow=5)
+            save_image(images_subset_grid, os.path.join(run_dir, f'fakes{cur_nimg//1000:06d}_subset_grid.png'))
 
             #--------------------
             # # Log forward-conditioned images
@@ -409,6 +434,7 @@ def training_loop(
                 with open(snapshot_pkl, 'wb') as f:
                     pickle.dump(snapshot_data, f)
 
+        """
         # Evaluate metrics.
         if (snapshot_data is not None) and (len(metrics) > 0):
             if rank == 0:
@@ -421,6 +447,7 @@ def training_loop(
                     metric_main.report_metric(result_dict, run_dir=run_dir, snapshot_pkl=snapshot_pkl)
                 stats_metrics.update(result_dict.results)
         del snapshot_data # conserve memory
+        """
 
         # Collect statistics.
         for phase in phases:

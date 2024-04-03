@@ -33,7 +33,10 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.makedirs(out_dir, exist_ok=True)
         
+    #print('img_files: ', img_files)
+    #print('lm_files: ', lm_files)
     for img_file, lm_file in zip(img_files, lm_files):
+        #print('img_file: ', img_file)
 
         img_path = os.path.join(args.indir, img_file)
         lm_path = os.path.join(lm_dir, lm_file)

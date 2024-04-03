@@ -49,7 +49,7 @@ def project_onto_planes(planes, coordinates):
     n_planes, _, _ = planes.shape
     coordinates = coordinates.unsqueeze(1).expand(-1, n_planes, -1, -1).reshape(N*n_planes, M, 3)
     inv_planes = torch.linalg.inv(planes).unsqueeze(0).expand(N, -1, -1, -1).reshape(N*n_planes, 3, 3)
-    projections = torch.bmm(coordinates, inv_planes)
+    projections = torch.bmm(coordinates.float(), inv_planes.float())
     return projections[..., :2]
 
 def sample_from_planes(plane_axes, plane_features, coordinates, mode='bilinear', padding_mode='zeros', box_warp=None):

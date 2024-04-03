@@ -12,12 +12,13 @@
 "Efficient Geometry-aware 3D Generative Adversarial Networks"."""
 
 import torch
-from training.networks_stylegan2 import Conv2dLayer, SynthesisLayer, ToRGBLayer
+#from training.networks_stylegan2 import Conv2dLayer, SynthesisLayer, ToRGBLayer
+from training.networks_stylegan2_lora import Conv2dLayer, SynthesisLayer, ToRGBLayer, SynthesisBlockWrapper, SynthesisBlock
 from torch_utils.ops import upfirdn2d
 from torch_utils import persistence
 from torch_utils import misc
 
-from training.networks_stylegan2 import SynthesisBlock
+#from training.networks_stylegan2 import SynthesisBlock
 import numpy as np
 from training.networks_stylegan3 import SynthesisLayer as AFSynthesisLayer
 
@@ -290,3 +291,18 @@ class SuperresolutionHybrid8XDC(torch.nn.Module):
         return rgb
 
 #----------------------------------------------------------------------------
+    
+@persistence.persistent_class
+class SuperresolutionHybrid8XDCWrapper(torch.nn.Module):
+    def __init__(self, superresolution_module, r, lora_alpha=1, lora_dropout=0):
+        super().__init__()
+        self.superresolution_module = superresolution_module
+        self.superresolution_module.requires_grad_(True)
+        if hasattr(self.superresolution_module, 'block0'):
+            self.superresolution_module.block0 = SynthesisBlockWrapper(self.superresolution_module.block0, r, lora_alpha, lora_dropout)
+        if hasattr(self.superresolution_module, 'block1'):
+            self.superresolution_module.block1 = SynthesisBlockWrapper(self.superresolution_module.block1, r, lora_alpha, lora_dropout)
+        self.input_resolution = self.superresolution_module.input_resolution
+        self.sr_antialias = self.superresolution_module.sr_antialias
+    def forward(self, *args, **kwargs):
+        return self.superresolution_module(*args, **kwargs)

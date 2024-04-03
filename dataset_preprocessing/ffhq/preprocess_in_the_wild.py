@@ -9,17 +9,23 @@
 # its affiliates is strictly prohibited.
 
 import os
+import shutil
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--indir', type=str, required=True)
 args = parser.parse_args()
+
+os.chdir('/playpen-nas-ssd/awang/eg3d/dataset_preprocessing/ffhq')
 
 # run mtcnn needed for Deep3DFaceRecon
 command = "python batch_mtcnn.py --in_root " + args.indir
 print(command)
 os.system(command)
 
-out_folder = args.indir.split("/")[-2] if args.indir.endswith("/") else args.indir.split("/")[-1]
+assert os.path.exists(os.path.join(args.indir, 'detections')), "MTCNN failed to detect faces in the input images"
+assert len(os.listdir(os.path.join(args.indir, 'detections'))) == len([x for x in os.listdir(args.indir) if x.endswith('.png')]), "MTCNN failed to detect faces in the input images"   
+
+out_folder = '/'.join(args.indir.split("/")[-4:-1]) if args.indir.endswith("/") else '/'.join(args.indir.split("/")[-3:])
 
 # run Deep3DFaceRecon
 os.chdir('Deep3DFaceRecon_pytorch')
@@ -39,6 +45,7 @@ print(command)
 os.system(command)
 
 # additional correction to match the submission version
+out_folder = os.path.join(args.indir, 'preprocessed')
 command = f"python preprocess_face_cameras.py --source {os.path.join(args.indir, 'crop')} --dest {out_folder} --mode orig"
 print(command)
 os.system(command)

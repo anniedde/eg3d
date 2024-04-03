@@ -14,6 +14,15 @@ import cv2
 import os
 from mtcnn import MTCNN
 import random
+import requests
+
+def notify(message):
+    chat_id = '6712696502'
+    TOKEN = '6643471688:AAH_8A5SrUe9eI-nAs90No_CI1T8H2KYqQE'
+    user_id = '6712696502'
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={message}"
+    requests.get(url).json() # this sends the message
+
 detector = MTCNN()
 
 # see how to visualize the bounding box and the landmarks at : https://github.com/ipazc/mtcnn/blob/master/example.py 
@@ -38,12 +47,9 @@ for img in imgs:
     if img.endswith(".png"):
         dst = os.path.join(out_detection, img.replace(".png", ".txt"))
 
-    print('flag1')
     if not os.path.exists(dst):
         image = cv2.cvtColor(cv2.imread(src), cv2.COLOR_BGR2RGB)
-        print('flag2')
         result = detector.detect_faces(image)
-        print('flag3')
 
         if len(result)>0:
             index = 0
@@ -51,7 +57,7 @@ for img in imgs:
                 size = -100000
                 for r in range(len(result)):
                     size_ = result[r]["box"][2] + result[r]["box"][3]
-                    if size < size_:
+                    if size > size_:
                         size = size_
                         index = r
 
@@ -72,3 +78,5 @@ for img in imgs:
                 outLand.write(str(float(keypoints['mouth_right'][0])) + " " + str(float(keypoints['mouth_right'][1])) + "\n")
                 outLand.close()
                 print(result)   
+        else:
+            notify(f'No face detected for {img}')
